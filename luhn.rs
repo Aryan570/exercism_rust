@@ -38,4 +38,30 @@ pub fn is_valid(code: &str) -> bool {
     }
     false
 }
-// you actually don't need to do anything with string. Improve the solution
+//You don't need to do anything with string. Improve the solution
+// Improved one
+/// Check a Luhn checksum.
+pub fn is_valid(code: &str) -> bool {
+    // todo!("Is the Luhn checksum for {code} valid?");
+    let mut flag = false;
+    let mut cnt = 0;
+    let mut sum = 0;
+    for byte in code.bytes().rev(){
+        if byte !=32 && (byte < 48 || byte >57){return false;}
+        if byte == 32 {continue;}
+        let tmp = byte - '0' as u8;
+        sum += tmp;
+        if flag{
+            sum -= tmp;
+            if 2*tmp > 9{
+                sum += (2*tmp) - 9;
+            }else{
+                sum+= 2*tmp;
+            }
+        }
+        flag = !flag;
+        cnt += 1;
+    }
+    sum%10 == 0 && cnt > 1
+}
+
