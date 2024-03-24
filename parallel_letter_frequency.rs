@@ -32,5 +32,8 @@ pub fn frequency(input: &[&str], worker_count: usize) -> HashMap<char, usize> {
     let ans_map = mpp.lock().unwrap();
     ans_map.clone()
 }
+// Great video by Exercism.
+// Best RUST solution -  its actually day and night when compared with mine. Geez
+//https://youtu.be/bkNQ1_kGHYE?si=Te_oJ9PvwcsOlo9X
 
 
