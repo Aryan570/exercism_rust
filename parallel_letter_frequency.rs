@@ -1,4 +1,4 @@
-// hardest till date
+// hardest to date
 use std::{collections::HashMap, sync::{Arc, Mutex}, thread};
 pub fn frequency(input: &[&str], worker_count: usize) -> HashMap<char, usize> {
     let input_string : Vec<String> = input.iter().map(|&s| s.to_owned()).collect();
@@ -33,7 +33,7 @@ pub fn frequency(input: &[&str], worker_count: usize) -> HashMap<char, usize> {
     ans_map.clone()
 }
 // Great video by Exercism.
-// Best RUST solution -  its actually day and night when compared with mine. Geez
+// Best RUST solution -  it's day and night compared to mine. Geez
 //https://youtu.be/bkNQ1_kGHYE?si=Te_oJ9PvwcsOlo9X
 
 
