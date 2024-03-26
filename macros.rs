@@ -1,6 +1,7 @@
+//my solution
 #[macro_export]
 macro_rules! hashmap {
-    // + is used instead of * cause pattern should repeat atleast once
+    // + is used instead of * cause pattern should repeat at least once
     ($($x:expr => $y:expr),+ $(,)?) => {
         {
             let mut tmp_map = ::std::collections::HashMap::new();
@@ -19,3 +20,14 @@ macro_rules! hashmap {
         ::std::collections::HashMap::new()
     }
 }
+//Some random guy on exercism
+#[macro_export]
+macro_rules! hashmap {
+    () => { ::std::collections::HashMap::new() };
+    ($( $key: expr => $val: expr ),+ $(,)?) => {{
+         let mut map = ::std::collections::HashMap::new();
+         $( map.insert($key, $val); )*
+         map
+    }}
+}
+
