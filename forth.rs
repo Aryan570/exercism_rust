@@ -1,13 +1,27 @@
-//So hear me out, although my code passed all the tests.
-// but it is vulnerable to OOM attack
-// and on the benchmark, it should have taken 1 MB only, but it did 993 MB. How the hell did that happen?
-// so its no good
-use std::collections::{HashMap, VecDeque};
+//** We should evaluate everywhere we have value as key_word in the definition of any other word in hashmap,
+//**Since we have a new definition (updated value) for key_word
+//**eg. if previously bar ------> foo
+//**                  foo ------>  5
+//** new definition   bar ------>  5 
+//**                  foo ------>  2
+use std::collections::HashMap;
 pub type Value = i32;
 pub type Result = std::result::Result<(), Error>;
+const ADD : &str = "+";
+const SUBTRACT : &str = "-";
+const MULTIPLY : &str = "*";
+const DIVIDE : &str = "/";
+const DROP : &str = "drop";
+const DUP : &str = "dup";
+const SWAP : &str = "swap";
+const OVER : &str = "over";
+const START: &str = ":";
+const END: &str = ";";
 
+
+#[derive(Default)]
 pub struct Forth{
-   ans : Vec<i32>,
+   stack : Vec<Value>,
    mpp : HashMap<String,String>
 }
 
@@ -21,177 +35,113 @@ pub enum Error {
 
 impl Forth {
     pub fn new() -> Forth {
-        let mut tmp = HashMap::new();
-        tmp.insert("drop".to_string(),"drop".to_string());
-        tmp.insert("over".to_string(),"over".to_string());
-        tmp.insert("swap".to_string(),"swap".to_string());
-        tmp.insert("dup".to_string(),"dup".to_string());
-        tmp.insert("+".to_string(),"+".to_string());
-        tmp.insert("*".to_string(),"*".to_string());
-        tmp.insert("/".to_string(),"/".to_string());
-        tmp.insert("-".to_string(),"-".to_string());
-        Forth { ans: Vec::new(), mpp: tmp }
+        Default::default()
     }
 
     pub fn stack(&self) -> &[Value] {
-        self.ans.as_slice()
+        &self.stack
     }
-    
-    fn make_hashmap(ip :&String,tmp_mpp : &mut HashMap<String,String>) -> (){
-        let mut vec : VecDeque<_> = ip.split(' ').collect();
-        vec.pop_back();vec.pop_front();
-        if vec.len() > 2 {
-            let mut s = String::new();
-            for v in 1..vec.len(){
-                if tmp_mpp.contains_key(vec[v].to_ascii_lowercase().as_str()){
-                    // *v = tmp_mpp.get(v.to_ascii_lowercase().as_str())
-                    vec[v] = tmp_mpp.get(vec[v].to_ascii_lowercase().as_str()).unwrap();
-                }
-                s.push_str(vec[v].to_ascii_lowercase().as_str());
-                s.push(' ');
+    fn arithmatic(&mut self,operation : &str) -> Result{
+        let right = self.stack.pop();
+        let left = self.stack.pop();
+        let (left,right) = match (left,right) {
+            (None,_) => return Err(Error::StackUnderflow),
+            (_,None) => return Err(Error::StackUnderflow),
+            (_,Some(0)) if operation == DIVIDE => return Err(Error::DivisionByZero),
+            (Some(l),Some(r)) => (l,r),
+        };
+        match operation{
+            ADD => self.stack.push(left + right),
+            SUBTRACT => self.stack.push(left - right),
+            MULTIPLY => self.stack.push(left * right),
+            DIVIDE => self.stack.push(left/right),
+            _ => return Err(Error::InvalidWord),
+        }
+        Ok(())
+    }
+    fn stack_operations(&mut self,operation : &str)->Result{
+        let right = match self.stack.pop(){
+            Some(val) => val,
+            None => return Err(Error::StackUnderflow)
+        };
+        match operation{
+            DROP => Ok(()),
+            DUP => {
+                self.stack.push(right);
+                self.stack.push(right);
+                Ok(())
             }
-            s.pop();
-            tmp_mpp.insert(vec[0].to_ascii_lowercase().to_string(), s);
-        }else if vec.len() == 2{
-            let key = *vec.get(0).unwrap();
-            let val = *vec.get(1).unwrap();
-            let mut value = val.to_string();
-            if tmp_mpp.contains_key(val.to_ascii_lowercase().as_str()){
-                value = tmp_mpp.get(val.to_ascii_lowercase().as_str()).unwrap().to_string();
+            SWAP => match self.stack.pop() {
+                Some(left) => {
+                    self.stack.push(right);
+                    self.stack.push(left);
+                    return Ok(());
+                },
+                None => Err(Error::StackUnderflow)
             }
-            tmp_mpp.insert(key.to_string().to_ascii_lowercase(), value);
+            OVER => match self.stack.pop() {
+                Some(left) => {
+                    self.stack.push(left);
+                    self.stack.push(right);
+                    self.stack.push(left);
+                    return Ok(());
+                },
+                None => Err(Error::StackUnderflow)
+            }
+            _ => Err(Error::InvalidWord)
         }
     }
+    fn replace_key_word(&mut self,word : &str, old_val : &str){
+        for (key,val) in self.mpp.clone().iter(){
+            if val.split_whitespace().any(|k| k == word){
+                let mut new_val : Vec<_> = val.split_whitespace().collect();
+                for w in &mut new_val{
+                    if *w == word {*w = old_val;}
+                }
+                let new_val_string = new_val.join(" ");
+                self.mpp.insert(key.clone(), new_val_string);
+            }
+        }
+    }
+
 
     pub fn eval(&mut self, input: &str) -> Result {
-        let mut ip = input.to_string();
-        let mut for_eval = String::new();
-        let mut for_map = String::new();
-        let mut flag = false;
-        let mut tmp_vec = Vec::new();
-        if ip.contains(':') && ip.contains(';'){
-            for sam in ip.chars(){
-                if sam == ':'{flag = true;continue;}
-                if sam == ';'{flag = false; tmp_vec.push(for_map); for_map = String::new(); continue;}
-                if flag{
-                    for_map.push(sam);
-                }else {
-                    for_eval.push(sam);
+        let mut running_add_word = false;
+        let mut key_word = String::new();
+        let mut value_of_word = String::new();
+        for new_input in input.split_whitespace(){
+            let lower_new_input = &new_input.to_ascii_lowercase()[..];
+            match lower_new_input {
+                START if !running_add_word =>{
+                    running_add_word = true;
+                    key_word = String::new();
+                    value_of_word = String::new();
                 }
+                END if running_add_word =>{
+                    running_add_word = false;
+                    //**Check on top */
+                    if let Some(old_value) = self.mpp.insert(key_word.clone(), value_of_word.clone()){
+                        self.replace_key_word(&key_word, &old_value);
+                    }
+                }
+                is_new_word_num if running_add_word && key_word.len() == 0 && is_new_word_num.parse::<Value>().is_ok() => return Err(Error::InvalidWord),
+                key if running_add_word && key_word.len() == 0 => key_word = key.to_string(),
+                val_of_key if running_add_word => {
+                    value_of_word.push(' ');
+                    value_of_word.push_str(val_of_key);
+                }
+                custom_word if self.mpp.contains_key(custom_word) => {
+                    let ip = self.mpp.get(custom_word).unwrap().to_owned();
+                    //checking nested stuff
+                    self.eval(&ip)?
+                }
+                num if num.parse::<Value>().is_ok() => self.stack.push(num.parse::<Value>().unwrap()),
+                ADD | SUBTRACT | MULTIPLY | DIVIDE => self.arithmatic(lower_new_input)?,
+                DROP | DUP | SWAP | OVER => self.stack_operations(lower_new_input)?,
+                _ => return Err(Error::UnknownWord)
             }
         }
-        for v in tmp_vec{
-            Self::make_hashmap(&v, &mut self.mpp);
-        }
-        for k in 0..=9{
-            if self.mpp.contains_key(&k.to_string()){
-                return Err(Error::InvalidWord);
-            }
-        }
-        if for_eval.len() > 0 {ip = for_eval;}
-        else if ip.contains(':'){
-            if ip.contains(';'){
-                return Ok(());
-            }else {
-                return Err(Error::InvalidWord);
-            }
-        }
-        for (key, value) in &self.mpp{
-            if key != value && !key.parse::<i32>().is_ok(){
-                ip = ip.replace(key, value);
-            }
-        }
-        let ip_vec : Vec<_> = ip.split(' ').map(|x| x.to_owned()).collect();
-        let mut stack = Vec::new();
-        for s in ip_vec{
-            match s.to_ascii_lowercase().as_str() {
-                f @ ("+" | "/" | "-" | "*") => {
-                    if stack.len() == 0 {return Err(Error::StackUnderflow);}
-                    let num1 : Value = stack.pop().unwrap();
-                    if stack.len() == 0 {return Err(Error::StackUnderflow);}
-                    let num2: Value = stack.pop().unwrap();
-                    if num1 == 0 && f == "/" {return Err(Error::DivisionByZero);}
-                    match self.mpp.get(f).unwrap().as_str() {
-                        "+" => stack.push(num1 + num2),
-                        "/" => stack.push(num2 / num1),
-                        "-" => stack.push(num2 - num1),
-                        "*" => stack.push(num1 * num2),
-                        _ => println!("Nah")
-                    }
-                },
-                p @ ("dup" | "drop" | "swap" | "over") => {
-                    if stack.len() == 0 || (p == "over" && stack.len() < 2){ return Err(Error::StackUnderflow);}
-                    let mut num1 = 0; let mut num2 = 0;
-                    if p == "dup" {
-                        num1 = *stack.last().clone().unwrap();
-                    }
-                    if p == "swap" {
-                        num1 = stack.pop().unwrap(); 
-                        if stack.len() == 0 {return Err(Error::StackUnderflow);}
-                        num2 = stack.pop().unwrap();
-                    }
-                    match p {
-                        "dup" =>  stack.push(num1),
-                        "drop" => {stack.pop();},
-                        "swap" => {stack.push(num1);stack.push(num2);}
-                        "over" => stack.push(*stack.get(stack.len() - 2).unwrap()),
-                        _ => println!("Nah2")
-                    }
-
-                },
-                "" => continue,
-                num_or_word @ _ => {
-                    if s.parse::<i32>().is_ok() {
-                        if self.mpp.contains_key(num_or_word){
-                                return Err(Error::InvalidWord);
-                        }
-                        stack.push(s.parse().unwrap());
-                    }else {
-                        let val = self.mpp.get(num_or_word);
-                        if val.is_some(){
-                            match val.unwrap().as_str() {
-                                f @ ("+" | "/" | "-" | "*") => {
-                                    if stack.len() == 0 {return Err(Error::StackUnderflow);}
-                                    let num1 : Value = stack.pop().unwrap();
-                                    if stack.len() == 0 {return Err(Error::StackUnderflow);}
-                                    let num2: Value = stack.pop().unwrap();
-                                    if num1 == 0 && f == "/" {return Err(Error::DivisionByZero);}
-                                    match self.mpp.get(f).unwrap().as_str() {
-                                        "+" => stack.push(num1 + num2),
-                                        "/" => stack.push(num2 / num1),
-                                        "-" => stack.push(num2 - num1),
-                                        "*" => stack.push(num1 * num2),
-                                        _ => println!("Nah")
-                                    }
-                                },
-                                p @ ("dup" | "drop" | "swap" | "over") => {
-                                    if stack.len() == 0 || (p == "over" && stack.len() < 2){ return Err(Error::StackUnderflow);}
-                                    let mut num1 = 0; let mut num2 = 0;
-                                    if p == "dup" {
-                                        num1 = *stack.last().clone().unwrap();
-                                    }
-                                    if p == "swap" {
-                                        num1 = stack.pop().unwrap(); 
-                                        if stack.len() == 0 {return Err(Error::StackUnderflow);}
-                                        num2 = stack.pop().unwrap();
-                                    }
-                                    match p {
-                                        "dup" =>  stack.push(num1),
-                                        "drop" => {stack.pop();},
-                                        "swap" => {stack.push(num1);stack.push(num2);}
-                                        "over" => stack.push(*stack.get(stack.len() - 2).unwrap()),
-                                        _ => println!("Nah2")
-                                    }
-                
-                                },
-                                _ => return Err(Error::InvalidWord)
-                            }
-                        }else{return Err(Error::UnknownWord);}
-                    }
-                },
-            }
-        }
-        self.ans = stack;
+        if running_add_word {return Err(Error::InvalidWord);}
         Ok(())
     }
 }
