@@ -1,40 +1,25 @@
 //obsession with match
 pub fn reply(message: &str) -> &str {
-    match message {
-        s if s.trim().len() > 0 && s.trim().chars().last().unwrap() == '?' => {
+    match message.trim() {
+        s if s.len() > 0 && s.ends_with("?") => {
             let mut flag = false;
             let mut any_alpha = false;
             for ch in s.chars() {
                 if ch.is_alphabetic() {
                     any_alpha = true;
-                    if ch.to_ascii_uppercase() != ch {
-                        flag = true;
-                    }
+                    if ch.to_ascii_uppercase() != ch { flag = true;}
                 }
             }
-            if flag == true || !any_alpha {
-                return "Sure.";
-            }
+            if flag == true || !any_alpha {return "Sure.";}
             return "Calm down, I know what I'm doing!";
         }
-        m if m.trim() == "" => "Fine. Be that way!",
-        e if e
-            .trim()
-            .split_whitespace()
-            .collect::<Vec<&str>>()
-            .join("")
-            .to_ascii_uppercase()
-            == e.trim().split_whitespace().collect::<Vec<&str>>().join("") =>
-        {
+        m if m == "" => "Fine. Be that way!",
+        e if e.to_ascii_uppercase() == e => {
             let mut flag = false;
-            for ch in e.trim().chars() {
-                if ch.is_alphabetic() {
-                    flag = true;
-                }
+            for ch in e.chars() {
+                if ch.is_alphabetic() {flag = true;}
             }
-            if flag == false {
-                return "Whatever.";
-            }
+            if flag == false {return "Whatever.";}
             "Whoa, chill out!"
         }
         _ => "Whatever.",
