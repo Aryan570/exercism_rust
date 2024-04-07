@@ -72,3 +72,55 @@ pub fn solve(input: &str) -> Option<HashMap<char, u8>> {
     if ans.len() == 0 {return None;}
     Some(ans)
 }
+//This didn't   
+use std::collections::{HashMap, HashSet};
+pub fn solve(input: &str) -> Option<HashMap<char, u8>> {
+    let mut is_first_letter = HashSet::new(); 
+    // this could be improved
+    for l in input.split_whitespace(){
+        is_first_letter.insert(l.chars().next().unwrap());
+    }
+    let mut right_char_to_int :HashMap<char, u8> = HashMap::new();
+    let mut num_visited :HashSet<u8> = HashSet::new();
+    let v : Vec<&str> = input.split(" == ").collect();
+    let left = v[0];
+    let collected_left : Vec<&str> = left.split(" + ").collect();
+    let right : Vec<char> = input.chars().filter(|c| c.is_alphabetic()).collect::<HashSet<char>>().into_iter().collect();
+    let mut ans: HashMap<char, u8> = HashMap::new();
+    get_right_map(0,&right,&mut right_char_to_int,&mut num_visited,&is_first_letter, &mut v[1].to_string(),&mut ans,&collected_left);
+    if ans.len() == 0 {return None;}
+    Some(ans)
+}
+fn get_right_map(idx:usize, right : &Vec<char>,right_char_to_int : &mut HashMap<char, u8>,num_visited : &mut HashSet<u8>,is_first_letter : &HashSet<char>,result : &mut String,ans : &mut HashMap<char,u8>, collected_left : &Vec<&str>){
+    if idx >= right.len(){
+        if ans.len() > 0 {return;}
+        let mut left_sum = 0;
+        for l in collected_left{
+            let c: String = l.chars().map(|c|{
+                let n = right_char_to_int.get(&c).unwrap();
+                return (*n + 48) as char
+            }).collect();
+            left_sum += c.parse::<i64>().unwrap();
+        }
+        let right_dup :String = result.chars().map(|c| {
+            let n = right_char_to_int.get(&c).unwrap();
+            return (*n + 48) as char
+        }).collect();
+        let right_sum = right_dup.parse::<i64>().unwrap();
+        if left_sum == right_sum && left_sum !=0{
+            *ans = right_char_to_int.clone();
+        }
+        return;
+    }
+    for i in 0..=9 as u8{
+        if i == 0 && is_first_letter.contains(&right[idx]){continue;}
+        if !num_visited.contains(&i){
+            num_visited.insert(i);
+            right_char_to_int.insert(right[idx], i);
+            get_right_map(idx + 1, right, right_char_to_int, num_visited, is_first_letter,result,ans,collected_left);
+            if ans.len() > 0 {return;}
+            num_visited.remove(&i);
+            right_char_to_int.remove(&right[idx]);
+        }
+    }
+}
