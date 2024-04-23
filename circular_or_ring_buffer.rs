@@ -43,7 +43,7 @@ impl<T: Clone> CircularBuffer<T> {
     }
 
     pub fn clear(&mut self) {
-        self.v = vec![None;self.v.len()];
+        self.v.fill(None);
         self.start = 0;
         self.end = 0;
     }
